@@ -1,0 +1,143 @@
+---
+title: "Exploring Discretionary Accruals"
+author: "Joachim Gassen"
+institute: "TRR 266 Accounting for Transparency"
+date: today
+fontsize: "9pt"
+pdf-engine: xelatex # pdflatex creates rastered fonts
+format: 
+  beamer:
+    slide-level: 3
+    number-sections: true
+    toc: false
+header-includes:
+- \usepackage{booktabs} 
+- \usepackage{threeparttable}
+- \usepackage{graphicx}
+- \input{beamer_theme_trr266.sty}
+---
+
+```{python}
+#| echo: false
+import json
+with open('../output/results.json', 'r') as f:
+    results = json.load(f)
+
+min_fyear, max_fyear, no_unique_firms = results['Desc information'].values()
+
+def rename_var_to_label(table, italic=True):
+    for var_name, var_label in results['Variable Names'].items():
+        var_label = f'\\textit{{{var_label}}}' if italic else var_label
+        table = table.replace(var_name, var_label)
+    return table
+```
+
+\pagebreak
+
+# Motivation
+
+### Discretionary Accruals
+
+- Are used in tons of papers
+- As measurement constructs for almost everything
+  - Earnings Management
+  - Earnings Quality
+  - Audit Quality
+  - Management Quality
+- But how do they look like?
+
+
+### Data
+
+```{python}
+#| echo: false
+#| output: asis
+
+lat_tab = rename_var_to_label(results['Descriptive Statistics']).split('\n')
+# lat_tab[4] = '\\\\[-1.8ex]\\hline \\hline \\\\[-1.8ex]'
+# lat_tab[6] = '\\hline\\\\[-1.8ex]'
+# lat_tab[-4] = '\\\\[-1.8ex]\\hline \\hline \\\\[-1.8ex]'
+
+print('\n'.join([
+    '\\begin{table}[!htbp]',  
+    '\\resizebox{\\textheight}{!}{',
+    '\\begin{threeparttable}',
+    '\n'.join(lat_tab[3:-2]),
+    '\\begin{tablenotes}[flushleft]',
+    '\setlength{\labelsep}{0pt}',
+    f'\\item Note: The data is obtained from the Compustat U.S. as provided by WRDS. The sample covers the period {int(min_fyear)} to {int(max_fyear)} and {no_unique_firms:,} unique firms.',
+    '\end{tablenotes}',
+    '\end{threeparttable}',
+    '}',
+    '\\end{table}',
+]))
+```
+
+### Distribution of Discretionary Accruals over time - unrestricted sample
+
+![Distribution of Discretionary Accruals over time - unrestricted sample](../output/fig_boxplot_full.png){#fBPlotFULL height=85%}
+
+
+### Distribution of Discretionary Accruals over time - analysis sample
+
+![Distribution of Discretionary Accruals over Time - analysis sample](../output/fig_boxplot_smp.png){#fig-boxplot_smp height=85%}
+
+### Correlation of Modified Jones with Dechow and Dichev DA
+
+![Correlation of Modified Jones with Dechow and Dichev DA](../output/fig_scatter_md_dd.png){#CorrVizz height=85%}
+
+### Association of Dechow and Dichev DA with firm size
+
+![Dechow and Dichev DA and Firm Size](../output/fig_scatter_dd_lnta.png){#fig-scatter_dd_lnta height=85%}
+
+
+### No presentation without correlation table...
+
+
+```{python}
+#| echo: false
+#| output: asis
+
+lat_tab = rename_var_to_label(results['Correlations'], False).split('\n')
+lat_tab[2] = '\\\\[-1.8ex]\\hline \\hline \\\\[-1.8ex]'
+lat_tab[4] = '\\hline\\\\[-1.8ex]'
+lat_tab[-7] = '\\\\[-1.8ex]\\hline \\hline \\\\[-1.8ex]'
+
+print('\n'.join([
+    '\\begin{center}',
+    '\\resizebox*{\\textwidth}{!}{',
+    '\\begin{tabular}{lccccccc}',
+    '\n'.join(lat_tab[2:-6]),
+    '\\end{tabular}}',
+    '\\end{center}'
+]))
+```
+
+### ... and regression table
+
+```{python}
+#| echo: false
+#| output: asis
+
+print('\n'.join([
+    '\\begin{center}',
+    '\\resizebox*{!}{0.8\\textheight}{', 
+    '\\begin{tabular}{lcc}',
+    rename_var_to_label('\n'.join(results['Regression'].split('\n')[4:-2])),
+    '\\end{tabular}}',
+    '\\end{center}'
+]))
+```
+
+### Conclusion
+
+- Discretionary accruals are simply wonderful! 
+- With these distributional properties and the power of large samples they will almost always be significant in one direction or the other regardless the setting or controls
+- Use them for every economic construct under the sun!
+
+
+
+
+
+
+

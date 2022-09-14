@@ -1,3 +1,6 @@
+L?=R
+
+# Set to R or python above(no space) or call make with L=R or L=python argument.
 # If you are new to Makefiles: https://makefiletutorial.com
 
 PAPER := output/paper.pdf
@@ -9,15 +12,31 @@ TARGETS :=  $(PAPER) $(PRESENTATION)
 EXTERNAL_DATA := data/external/fama_french_12_industries.csv \
 	data/external/fama_french_48_industries.csv
 
-WRDS_DATA := data/pulled/cstat_us_sample.rds
+ifeq ($L, R)
+	CLI:=Rscript --encoding=UTF-8
+	SCRIPT_EXT:=R
+	DATA_EXT:=rds
+	RESULT_EXT:=rda
+	DOC_EXT:=Rmd
+	render_doc_fn = $(CLI) -e 'library(rmarkdown); render("${1}.$(DOC_EXT)")'
+else ifeq ($L,python)
+	CLI:=python
+	SCRIPT_EXT:=py
+	DATA_EXT:=csv
+	RESULT_EXT:=json
+	DOC_EXT:=qmd
+	render_doc_fn = quarto render $(1).$(DOC_EXT) --quiet
+else
+$(error Langauge(L) has to be R or python, also please make sure that there are no trailing white space.)
+endif
 
-GENERATED_DATA := data/generated/acc_sample.rds
+WRDS_DATA := data/pulled/cstat_us_sample.$(DATA_EXT)
 
-RESULTS := output/results.rda
+GENERATED_DATA := data/generated/acc_sample.$(DATA_EXT)
 
-RSCRIPT := Rscript --encoding=UTF-8
+RESULTS := output/results.$(RESULT_EXT)
 
-.phony: all clean very-clean dist-clean
+.phony: all, clean very-clean dist-clean
 
 all: $(TARGETS)
 
@@ -36,20 +55,22 @@ config.csv:
 	@echo "To start, you need to copy _config.csv to config.csv and edit it"
 	@false
 	
-$(WRDS_DATA): code/R/pull_wrds_data.R code/R/read_config.R config.csv
-	$(RSCRIPT) code/R/pull_wrds_data.R
+$(WRDS_DATA): code/$L/pull_wrds_data.$(SCRIPT_EXT) code/$L/read_config.$(SCRIPT_EXT) \
+	config.csv
+	$(CLI) code/$L/pull_wrds_data.$(SCRIPT_EXT)
 
-$(GENERATED_DATA): $(WRDS_DATA) $(EXTERNAL_DATA) code/R/prepare_data.R
-	$(RSCRIPT) code/R/prepare_data.R
+$(GENERATED_DATA): $(WRDS_DATA) $(EXTERNAL_DATA) code/$L/prepare_data.$(SCRIPT_EXT)
+	$(CLI) code/$L/prepare_data.$(SCRIPT_EXT)
 
-$(RESULTS):	$(GENERATED_DATA) code/R/do_analysis.R
-	$(RSCRIPT) code/R/do_analysis.R
+$(RESULTS):	$(GENERATED_DATA) code/$L/do_analysis.$(SCRIPT_EXT)
+	$(CLI) code/$L/do_analysis.$(SCRIPT_EXT)
 
-$(PAPER): doc/paper.Rmd doc/references.bib $(RESULTS) 
-	$(RSCRIPT) -e 'library(rmarkdown); render("doc/paper.Rmd")'
+$(PAPER): doc/paper.$(DOC_EXT) doc/references.bib $(RESULTS)
+	$(call render_doc_fn,doc/paper)
 	mv doc/paper.pdf output
 	rm -f doc/paper.ttt doc/paper.fff
 	
-$(PRESENTATION): doc/presentation.Rmd $(RESULTS) doc/beamer_theme_trr266.sty
-	$(RSCRIPT) -e 'library(rmarkdown); render("doc/presentation.Rmd")'
+$(PRESENTATION): doc/presentation.$(DOC_EXT) $(RESULTS) \
+doc/beamer_theme_trr266.sty
+	$(call render_doc_fn,doc/presentation)
 	mv doc/presentation.pdf output
