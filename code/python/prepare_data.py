@@ -5,67 +5,43 @@
 # ------------------------------------------------------------------------------
 
 from itertools import product
+import logging
+
+import hydra
 from statsmodels.formula.api import ols
 import numpy as np
 import pandas as pd
 
+# pylint: disable=E1120
 
-def accrual_model_mjones(df):
-    return ols('tacc ~ inverse_a + drev + ppe', df).fit()
-
-
-def accrual_model_dd(df):
-    return ols('dwc ~ lagcfo + cfo + leadcfo', df).fit()
+log = logging.getLogger(__name__)
 
 
-def mleadlag(x, n, ts_id):
-    return np.where(ts_id == ts_id.shift(-n) - n, x.shift(-n), np.nan)
+@hydra.main(version_base=None, config_path="../../conf", config_name="config")
+def main(cfg):
+    log.info("Preparing data for analysis ...")
 
+    ff12 = pd.read_csv(cfg['prepare_data']['fama_french_12'], dtype=object)
+    ff48 = pd.read_csv(cfg['prepare_data']['fama_french_48'], dtype=object)
 
-def groupby(x, by): return x.groupby(by, group_keys=False)
+    cstat_us_sample = pd.read_csv(cfg['prepare_data']['cstat_us_sample'])
+    cstat_us_sample['gvkey'] = cstat_us_sample['gvkey'].astype(str)
 
+    us_base_sample = prep_us_base_sample(cstat_us_sample, ff12, ff48)
 
-def treat_vector_outliers(x, percentile=0.01, truncate=False):
-    '''
-    Treats numerical outliers either by winsorizing or by truncating.
-    '''
+    dup_obs = us_base_sample[us_base_sample.duplicated()]
+    assert dup_obs.shape[0] == 0, "Duplicate firm-year observations in Compustat data, stored in 'dup_obs'."
 
-    if not np.issubdtype(x.dtype, np.number):
-        return x
+    mj = estimate_mj_accruals(us_base_sample)
+    dd = estimate_dd_accruals(us_base_sample)
 
-    x = np.array(x, copy=True)
+    np.seterr(divide='ignore')  # because np.log(0) throws a warning
+    smp = prep_smp(us_base_sample, mj, dd)
+    np.seterr(divide='warn')
 
-    lim = np.quantile(x, [percentile, 1-percentile])
+    smp.to_csv(cfg['prepare_data']['acc_sample'], index=False)
 
-    if truncate:
-        x[x < lim[0]] = np.nan
-        x[x > lim[1]] = np.nan
-    else:
-        x[x < lim[0]] = lim[0]
-        x[x > lim[1]] = lim[1]
-    return x
-
-
-def treat_outliers(df, percentile=0.01, truncate=False, by=None):
-    if by:
-        return groupby(df, by).apply(lambda sub_group: sub_group.apply(lambda x: treat_vector_outliers(x, percentile, truncate)))
-    else:
-        return df.apply(lambda x: treat_vector_outliers(x, percentile, truncate))
-
-
-def winsorize(df, drop=None, **kwargs):
-    '''
-    Treats the outliers of all numerical columns in df, except the ones in drop.
-    '''
-
-    if drop:
-        vars = [c for c in list(df) if c not in drop]
-        df.loc[:, vars] = treat_outliers(df.loc[:, vars], **kwargs)
-    else:
-        df = treat_outliers(df, **kwargs)
-    return df
-
-# --- Prepare base sample ------------------------------------------------------
+    log.info("Preparing data for analysis ... Done!")
 
 
 def prep_us_base_sample(df, ff12, ff48):
@@ -83,11 +59,11 @@ def prep_us_base_sample(df, ff12, ff48):
           )
     return df
 
-
 # --- Calculate modified Jones model accruals and statistics -------------------
 
 # Methodology is somewhat loosely based on Hribar and Nichols (JAR, 2007)
 # https://doi.org/10.1111/j.1475-679X.2007.00259.x
+
 
 def estimate_mj_accruals(df, min_obs=10):
     df = (df
@@ -190,11 +166,60 @@ def estimate_dd_accruals(df, min_obs=10):
     return dd
 
 
-# --- Merge data and prepare samples -------------------------------------------
+def accrual_model_mjones(df):
+    return ols('tacc ~ inverse_a + drev + ppe', df).fit()
 
-def expand_grid(x, y, col_name):
-    df = pd.DataFrame(
-        list(product(x.unique(), y.unique())), columns=col_name)
+
+def accrual_model_dd(df):
+    return ols('dwc ~ lagcfo + cfo + leadcfo', df).fit()
+
+
+def mleadlag(x, n, ts_id):
+    return np.where(ts_id == ts_id.shift(-n) - n, x.shift(-n), np.nan)
+
+
+def groupby(x, by):
+    return x.groupby(by, group_keys=False)
+
+
+def treat_vector_outliers(x, percentile=0.01, truncate=False):
+    '''
+    Treats numerical outliers either by winsorizing or by truncating.
+    '''
+
+    if not np.issubdtype(x.dtype, np.number):
+        return x
+
+    x = np.array(x, copy=True)
+
+    lim = np.quantile(x, [percentile, 1-percentile])
+
+    if truncate:
+        x[x < lim[0]] = np.nan
+        x[x > lim[1]] = np.nan
+    else:
+        x[x < lim[0]] = lim[0]
+        x[x > lim[1]] = lim[1]
+    return x
+
+
+def treat_outliers(df, percentile=0.01, truncate=False, by=None):
+    if by:
+        return groupby(df, by).apply(lambda sub_group: sub_group.apply(lambda x: treat_vector_outliers(x, percentile, truncate)))
+    else:
+        return df.apply(lambda x: treat_vector_outliers(x, percentile, truncate))
+
+
+def winsorize(df, drop=None, **kwargs):
+    '''
+    Treats the outliers of all numerical columns in df, except the ones in drop.
+    '''
+
+    if drop:
+        _vars = [c for c in list(df) if c not in drop]
+        df.loc[:, _vars] = treat_outliers(df.loc[:, _vars], **kwargs)
+    else:
+        df = treat_outliers(df, **kwargs)
     return df
 
 
@@ -239,36 +264,10 @@ def prep_smp(us_base_sample, mj, dd):
     return smp
 
 
-def main():
-    print("Preparing data for analysis ...")
-    ff12 = pd.read_csv(
-        "data/external/fama_french_12_industries.csv", dtype=object)
-
-    ff48 = pd.read_csv(
-        "data/external/fama_french_48_industries.csv", dtype=object)
-
-    cstat_us_sample = pd.read_csv("data/pulled/cstat_us_sample.csv")
-
-    cstat_us_sample['gvkey'] = cstat_us_sample['gvkey'].astype(str)
-
-    us_base_sample = prep_us_base_sample(cstat_us_sample, ff12, ff48)
-
-    dup_obs = us_base_sample[us_base_sample.duplicated()]
-
-    assert dup_obs.shape[0] == 0, "Duplicate firm-year observations in Compustat data, stored in 'dup_obs'."
-
-    mj = estimate_mj_accruals(us_base_sample)
-    dd = estimate_dd_accruals(us_base_sample)
-
-    np.seterr(divide='ignore')  # because np.log(0) throws a warning
-    smp = prep_smp(us_base_sample, mj, dd)
-    np.seterr(divide='warn')
-
-    smp.to_csv("data/generated/acc_sample.csv", index=False)
-
-    print("Done!")
-
-    return None
+def expand_grid(x, y, col_name):
+    df = pd.DataFrame(
+        list(product(x.unique(), y.unique())), columns=col_name)
+    return df
 
 
 if __name__ == "__main__":

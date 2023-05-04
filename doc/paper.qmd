@@ -41,9 +41,12 @@ header-includes:
 
 ```{python}
 #| echo: false
-import json
-with open('../output/results.json', 'r') as f:
-    results = json.load(f)
+#| output: false
+
+import pickle
+
+with open('../output/results.pickle', 'rb') as f:
+        results = pickle.load(f)
 
 min_fyear, max_fyear, no_unique_firms = results['Desc information'].values()
 
@@ -70,11 +73,23 @@ To demonstrate our workflow, we explore discretionary accruals across the U.S. W
 
 Table \ref{tab:tab-descriptives-sample} presents our data that is based on a simple WRDS pull of Compustat data with financial firms (SIC 6XXX) excluded. We require data to calculate all variables and this drastically reduces the sample size. Modified Jones discretionary accruals are calculated loosely based on @HN_2007 and Dechow and Dichev discretionary accruals are calculated based on (big surprise) @DD_2002. As you will see from @fig-boxplot_smp, discretionary accruals are very noisy constructs, even after limiting the sample to observations with complete data and winsorizing all data to the top and bottom percentile for each year. @fig-scatter_dd_lnta shows a very prominent heteroscedasticity of discretionary accruals with regards to size. While researchers have tried to address this problem, the distributional properties of these constructs significantly complicate the interpretation of discretionary accrual-related findings. Especially in high powered settings, the measurement error, being highly correlated with size, will tend to load on variables that are unrelated to the underlying economic construct but correlated with size. Table \ref{tab:corr} shows some correlations and Table \ref{tab:reg} shows some completely pointless regressions.
 
-![Distribution of Discretionary Accruals over Time](../output/fig_boxplot_smp.png){#fig-boxplot_smp}
+```{python}
+#| label: fig-boxplot_smp
+#| fig-cap: "Distribution of Discretionary Accruals over Time"
+#| echo: false
+#| fig-format: svg
 
+results['fig_boxplot_smp']
+```
 
-![Dechow and Dichev DA and Firm Size](../output/fig_scatter_dd_lnta.png){#fig-scatter_dd_lnta}
+```{python}
+#| label: fig-scatter_dd_lnta
+#| fig-cap: "Dechow and Dichev DA and Firm Size"
+#| echo: false
+#| fig-format: svg
 
+results['fig_scatter_dd_lnta']
+```
 
 ```{python}
 #| echo: false

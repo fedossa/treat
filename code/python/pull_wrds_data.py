@@ -3,94 +3,87 @@
 #
 # This code pulls data from WRDS
 # ------------------------------------------------------------------------------
-from read_config import read_config
+import logging
+import os
 from psycopg2 import connect, OperationalError
 from getpass import getpass
 
+import hydra
 import pandas as pd
 
 
-def connect_to_wrds():
-    cfg = read_config()
+# pylint: disable=E1120
 
-    try:
-        if cfg == 'Not found':
-            wrds = connect(
-                dbname="wrds",
-                user=input('Please provide a wrds username: '),
-                password=getpass(
-                    'Please provide a wrds password (it will not show as you type): '),
-                host='wrds-pgdata.wharton.upenn.edu',
-                port=9737,
-                sslmode='require')
-            return wrds
-        else:
-            wrds = connect(
-                dbname="wrds",
-                user=cfg['wrds_user'],
-                password=cfg['wrds_pwd'],
-                host='wrds-pgdata.wharton.upenn.edu',
-                port=9737,
-                sslmode='require')
-            return wrds
-    except OperationalError as e:
-        print(
-            'There was an authentication failure, please check that the user name and password provided in either in the config.csv or in the terminal are correct. See full error below \n\n\n')
-        raise e
+log = logging.getLogger(__name__)
 
 
-def pull_wrds_data(dyn_vars, stat_vars, cs_filter):
+@hydra.main(version_base=None, config_path="../../conf", config_name="config")
+def main(cfg):
+    secrets = cfg['secrets']
+    pull_wrds_params = cfg['pull_data']['pull_wrds_params']
+    wrds_login = {} if secrets['prompt'] else secrets['wrds_authentication']
+    dyn_vars, stat_vars, cs_filter = pull_wrds_params.values()
+
+    wrds_us = pull_wrds_data(dyn_vars, stat_vars, cs_filter, wrds_login)
+    wrds_us.to_csv(cfg['pull_data']['cstat_us_sample'], index=False)
+
+
+def pull_wrds_data(dyn_vars, stat_vars, cs_filter, wrds_authentication):
     '''
     Pulls WRDS access data.
     '''
-    wrds = connect_to_wrds()
+    wrds = connect_to_wrds(wrds_authentication)
 
     cur = wrds.cursor()
 
-    print('Logged on to WRDS ...')
+    log.info('Logged on to WRDS ...')
 
-    dyn_var_str = ','.join(dyn_vars)
+    dyn_var_str = ', '.join(dyn_vars)
 
-    stat_var_str = ','.join(stat_vars)
+    stat_var_str = ', '.join(stat_vars)
 
-    print("Pulling dynamic Compustat data ... ")
+    log.info("Pulling dynamic Compustat data ... ")
     cur.execute(f"SELECT {dyn_var_str} FROM COMP.FUNDA WHERE {cs_filter}")
     wrds_us_dynamic = pd.DataFrame(cur.fetchall(), columns=dyn_vars)
+    log.info("Pulling dynamic Compustat data ... Done!")
 
-    print("Pulling static Compustat data ... ")
+    log.info("Pulling static Compustat data ... ")
     cur.execute(f'SELECT {stat_var_str} FROM COMP.COMPANY')
     wrds_us_static = pd.DataFrame(cur.fetchall(), columns=stat_vars)
-    wrds.close()
-    print("Disconnected from WRDS")
+    log.info("Pulling static Compustat data ... Done!")
 
-    wrds_us = pd.merge(wrds_us_static, wrds_us_dynamic,
-                       on="gvkey", how="inner")
+    wrds.close()
+    log.info("Disconnected from WRDS")
+
+    wrds_us = pd.merge(wrds_us_static, wrds_us_dynamic, "inner", on="gvkey")
 
     return wrds_us
 
 
-def main():
-    dyn_vars = [
-        "gvkey", "conm", "cik", "fyear", "datadate", "indfmt", "sich",
-        "consol", "popsrc", "datafmt", "curcd", "curuscn", "fyr",
-        "act", "ap", "aqc", "aqs", "acqsc", "at", "ceq", "che", "cogs",
-        "csho", "dlc", "dp", "dpc", "dt", "dvpd", "exchg", "gdwl", "ib",
-        "ibc", "intan", "invt", "lct", "lt", "ni", "capx", "oancf",
-        "ivncf", "fincf", "oiadp", "pi", "ppent", "ppegt", "rectr",
-        "sale", "seq", "txt", "xint", "xsga", "costat", "mkvalt", "prcc_f",
-        "recch", "invch", "apalch", "txach", "aoloch",
-        "gdwlip", "spi", "wdp", "rcp"
-    ]
+def connect_to_wrds(authentication):
 
-    stat_vars = ["gvkey", "loc", "sic", "spcindcd", "ipodate", "fic"]
+    if authentication:
+        user = authentication['wrds_user']
+        passwd = authentication['wrds_pwd']
+    else:
+        user = input('Please provide a wrds username: ')
+        passwd = getpass(
+            'Please provide a wrds password (it will not show as you type): ')
 
-    cs_filter = "consol='C' and (indfmt='INDL' or indfmt='FS') and datafmt='STD' and popsrc='D'"
-
-    wrds_us = pull_wrds_data(dyn_vars, stat_vars, cs_filter)
-
-    wrds_us.to_csv('data/pulled/cstat_us_sample.csv', index=False)
-
-    print("Done")
+    try:
+        wrds = connect(
+            dbname="wrds",
+            user=user,
+            password=passwd,
+            host='wrds-pgdata.wharton.upenn.edu',
+            port=9737,
+            sslmode='require'
+        )
+    except OperationalError as e:
+        log.error(
+            'There was an authentication failure, please check that the user name and password provided in either in the config.csv or in the terminal are correct. See full error below \n\n\n')
+        raise e
+    return wrds
 
 
 if __name__ == '__main__':
