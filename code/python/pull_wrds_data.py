@@ -4,12 +4,12 @@
 # This code pulls data from WRDS
 # ------------------------------------------------------------------------------
 import os
-from psycopg2 import connect, OperationalError
 from getpass import getpass
 import dotenv
 
 import pandas as pd
 from utils import read_config, setup_logging
+import wrds
 
 log = setup_logging()
 
@@ -46,51 +46,31 @@ def pull_wrds_data(cfg, wrds_authentication):
     '''
     Pulls WRDS access data.
     '''
-    wrds = connect_to_wrds(wrds_authentication)
-
-    cur = wrds.cursor()
+    db = wrds.Connection(
+        wrds_username=wrds_authentication['wrds_username'], wrds_password=wrds_authentication['wrds_password']
+    )
 
     log.info('Logged on to WRDS ...')
 
     dyn_var_str = ', '.join(cfg['dyn_vars'])
-
     stat_var_str = ', '.join(cfg['stat_vars'])
 
     log.info("Pulling dynamic Compustat data ... ")
-    cur.execute(f"SELECT {dyn_var_str} FROM COMP.FUNDA WHERE {cfg['cs_filter']}")
-    wrds_us_dynamic = pd.DataFrame(cur.fetchall(), columns=cfg['dyn_vars'])
+    wrds_us_dynamic = db.raw_sql(
+        f"SELECT {dyn_var_str} FROM comp.funda WHERE {cfg['cs_filter']}"
+    )
     log.info("Pulling dynamic Compustat data ... Done!")
 
     log.info("Pulling static Compustat data ... ")
-    cur.execute(f'SELECT {stat_var_str} FROM COMP.COMPANY')
-    wrds_us_static = pd.DataFrame(cur.fetchall(), columns=cfg['stat_vars'])
+    wrds_us_static = db.raw_sql(f'SELECT {stat_var_str} FROM comp.company')
     log.info("Pulling static Compustat data ... Done!")
 
-    wrds.close()
+    db.close()
     log.info("Disconnected from WRDS")
 
     wrds_us = pd.merge(wrds_us_static, wrds_us_dynamic, "inner", on="gvkey")
 
     return wrds_us
-
-
-def connect_to_wrds(authentication: dict[str, str]):
-    assert authentication['wrds_username'], 'No WRDS username provided'
-    assert authentication['wrds_password'], 'No WRDS password provided'
-    try:
-        wrds = connect(
-            dbname="wrds",
-            user=authentication['wrds_username'],
-            password=authentication['wrds_password'],
-            host='wrds-pgdata.wharton.upenn.edu',
-            port=9737,
-            sslmode='require'
-        )
-    except OperationalError as e:
-        log.error(
-            'There was an authentication failure, please check that the user name and password provided in either in the secrets.env or in the terminal are correct. See full error below \n\n\n')
-        raise e
-    return wrds
 
 
 if __name__ == '__main__':
