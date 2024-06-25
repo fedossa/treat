@@ -5,26 +5,23 @@
 # ------------------------------------------------------------------------------
 
 from itertools import product
-import logging
 
-import hydra
 from statsmodels.formula.api import ols
 import numpy as np
 import pandas as pd
 
-# pylint: disable=E1120
+from utils import read_config, setup_logging
 
-log = logging.getLogger(__name__)
+log = setup_logging()
 
-
-@hydra.main(version_base=None, config_path="../../conf", config_name="config")
-def main(cfg):
+def main():
     log.info("Preparing data for analysis ...")
+    cfg = read_config('config/prepare_data_cfg.yaml')
 
-    ff12 = pd.read_csv(cfg['prepare_data']['fama_french_12'], dtype=object)
-    ff48 = pd.read_csv(cfg['prepare_data']['fama_french_48'], dtype=object)
+    ff12 = pd.read_csv(cfg['fama_french_12'], dtype=object)
+    ff48 = pd.read_csv(cfg['fama_french_48'], dtype=object)
 
-    cstat_us_sample = pd.read_csv(cfg['prepare_data']['cstat_us_sample'])
+    cstat_us_sample = pd.read_csv(cfg['cstat_us_sample'])
     cstat_us_sample['gvkey'] = cstat_us_sample['gvkey'].astype(str)
 
     us_base_sample = prep_us_base_sample(cstat_us_sample, ff12, ff48)
@@ -39,7 +36,7 @@ def main(cfg):
     smp = prep_smp(us_base_sample, mj, dd)
     np.seterr(divide='warn')
 
-    smp.to_csv(cfg['prepare_data']['acc_sample'], index=False)
+    smp.to_csv(cfg['acc_sample'], index=False)
 
     log.info("Preparing data for analysis ... Done!")
 
@@ -71,13 +68,13 @@ def estimate_mj_accruals(df, min_obs=10):
               lagta=lambda x: np.concatenate(
                   [mleadlag(df['at'], -1, df['fyear']) for _, df in groupby(x, 'gvkey')]),
               tacc=lambda x: groupby(x, 'gvkey').apply(
-                  lambda x: (x['ibc'] - x['oancf'])/x['lagta']),
+                  lambda x: (x['ibc'] - x['oancf'])/x['lagta'], include_groups=False),
               drev=lambda x: np.concatenate(
                   [(df['sale'] - mleadlag(df['sale'], -1, df['fyear']) + df['recch'])/df['lagta'] for _, df in groupby(x, 'gvkey')]),
               inverse_a=lambda x: groupby(
-                  x, 'gvkey').apply(lambda x: 1/x['lagta']),
+                  x, 'gvkey').apply(lambda x: 1/x['lagta'], include_groups=False),
               ppe=lambda x: groupby(x, 'gvkey').apply(
-                  lambda x: x['ppegt']/x['lagta']))
+                  lambda x: x['ppegt']/x['lagta'], include_groups=False))
           .query('tacc.notna() & drev.notna() & ppe.notna()')
           .filter(["gvkey", "ff48_ind", "fyear", "tacc", "drev", "inverse_a", "ppe"])
           .groupby(['ff48_ind', 'fyear'])
@@ -86,8 +83,10 @@ def estimate_mj_accruals(df, min_obs=10):
           )
 
     model_df = pd.DataFrame(
-        df.groupby(['ff48_ind', 'fyear']).apply(lambda x: pd.Series(
-            {'gvkey': x['gvkey'], 'model': accrual_model_mjones(x)}))
+        df.groupby(['ff48_ind', 'fyear']).apply(
+            lambda x: pd.Series(
+                {'gvkey': x['gvkey'], 'model': accrual_model_mjones(x)}
+            ), include_groups=False)
     )
 
     mj_resids = (model_df
@@ -124,13 +123,13 @@ def estimate_dd_accruals(df, min_obs=10):
               avgta=lambda x: np.concatenate(
                   [(df['at'] + mleadlag(df['at'], -1, df['fyear']))/2 for _, df in groupby(x, 'gvkey')]),
               cfo=lambda x: groupby(x, 'gvkey').apply(
-                  lambda x: x['oancf']/x['avgta']),
+                  lambda x: x['oancf']/x['avgta'], include_groups=False),
               lagcfo=lambda x: np.concatenate(
                   [mleadlag(df['cfo'], -1, df['fyear']) for _, df in groupby(x, 'gvkey')]),
               leadcfo=lambda x: np.concatenate(
                   [mleadlag(df['cfo'], +1, df['fyear']) for _, df in groupby(x, 'gvkey')]),
               dwc=lambda x: groupby(x, 'gvkey').apply(
-                  lambda x: -(x['recch'] + x['invch'] + x['apalch'] + x['txach'] + x['aoloch'])/x['avgta']))
+                  lambda x: -(x['recch'] + x['invch'] + x['apalch'] + x['txach'] + x['aoloch'])/x['avgta'], include_groups=False))
           .query('dwc.notna() & cfo.notna() & lagcfo.notna() & leadcfo.notna()')
           .filter(["gvkey", "ff48_ind", "fyear", "dwc", "cfo", "lagcfo", "leadcfo"])
           .groupby(['ff48_ind', 'fyear'])
@@ -140,7 +139,8 @@ def estimate_dd_accruals(df, min_obs=10):
 
     model_df = pd.DataFrame(
         df.groupby(['ff48_ind', 'fyear']).apply(lambda x: pd.Series(
-            {'gvkey': x['gvkey'], 'model': accrual_model_dd(x)}))
+            {'gvkey': x['gvkey'], 'model': accrual_model_dd(x)}
+        ), include_groups=False)
     )
 
     dd_resids = (model_df

@@ -1,6 +1,3 @@
-L ?= R
-
-# Set to R or python above(no space) or call make with L=R or L=python argument.
 # If you are new to Makefiles: https://makefiletutorial.com
 
 PAPER := output/paper.pdf
@@ -8,38 +5,17 @@ PRESENTATION := output/presentation.pdf
 
 TARGETS :=  $(PAPER) $(PRESENTATION)
 
-ifeq ($(L),R)
-	CLI := Rscript --encoding=UTF-8
-	SCRIPT_EXT := R
-	DATA_EXT := rds
-	RESULT_EXT := rda
-	DOC_EXT := Rmd
-	render_doc_fn = $(CLI) -e 'library(rmarkdown); render("$<")'
-else ifeq ($(L),python)
-	CLI := python
-	SCRIPT_EXT := py
-	DATA_EXT := csv
-	RESULT_EXT := pickle
-	DOC_EXT := qmd
-	render_doc_fn = quarto render $< --quiet 
-else
-$(error Language (L) must be R or python, and there should be no trailing white space.)
-endif
-
 # Configs
-MAIN_CONF := conf/config.yaml
-HYDRA_CONF := conf/hydra/job_logging/logging.yaml
-SECRETS_CONF := conf/secrets/secrets.yaml
-PULL_DATA_CONF := conf/pull_data/pull_data.yaml
-PREPARE_DATA_CONF := conf/prepare_data/prepare_data.yaml
-DO_ANALYSIS_CONF := conf/do_analysis/do_analysis.yaml
+PULL_DATA_CFG := config/pull_data_cfg.yaml
+PREPARE_DATA_CFG := config/prepare_data_cfg.yaml
+DO_ANALYSIS_CFG := config/do_analysis_cfg.yaml
 
 EXTERNAL_DATA := data/external/fama_french_12_industries.csv \
 	data/external/fama_french_48_industries.csv
 
-WRDS_DATA := data/pulled/cstat_us_sample.$(DATA_EXT)
-GENERATED_DATA := data/generated/acc_sample.$(DATA_EXT)
-RESULTS := output/results.$(RESULT_EXT)
+WRDS_DATA := data/pulled/cstat_us_sample.csv
+GENERATED_DATA := data/generated/acc_sample.csv
+RESULTS := output/results.pickle
 
 .PHONY: all clean very-clean dist-clean
 
@@ -54,25 +30,24 @@ very-clean: clean
 dist-clean: very-clean
 	rm -f config.csv
 
-$(WRDS_DATA): code/$(L)/pull_wrds_data.$(SCRIPT_EXT) $(MAIN_CONF) \
-	$(HYDRA_CONF) $(SECRETS_CONF) $(PULL_WRDS_DATA_CONF) config.csv
-	$(CLI) $<
+$(WRDS_DATA): code/python/pull_wrds_data.py $(PULL_DATA_CFG)
+	python $<
 
-$(GENERATED_DATA): code/$(L)/prepare_data.$(SCRIPT_EXT) $(WRDS_DATA) \
-	$(EXTERNAL_DATA) $(PREPARE_DATA_CONF)
-	$(CLI) $<
+$(GENERATED_DATA): code/python/prepare_data.py $(WRDS_DATA) \
+	$(EXTERNAL_DATA) $(PREPARE_DATA_CFG)
+	python $<
 
-$(RESULTS): code/$(L)/do_analysis.$(SCRIPT_EXT) $(GENERATED_DATA) \
-	$(DO_ANALYSIS_CONF)
-	$(CLI) $<
+$(RESULTS): code/python/do_analysis.py $(GENERATED_DATA) \
+	$(DO_ANALYSIS_CFG)
+	python $<
 
-$(PAPER): doc/paper.$(DOC_EXT) doc/references.bib $(RESULTS)
-	$(call render_doc_fn,$<)
+$(PAPER): doc/paper.qmd doc/references.bib $(RESULTS)
+	quarto render $< --quiet
 	mv doc/paper.pdf output
 	rm -f doc/paper.ttt doc/paper.fff
 
-$(PRESENTATION): doc/presentation.$(DOC_EXT) $(RESULTS) \
+$(PRESENTATION): doc/presentation.qmd $(RESULTS) \
 	doc/beamer_theme_trr266.sty
-	$(call render_doc_fn,$<)
+	quarto render $< --quiet
 	mv doc/presentation.pdf output
 	rm -rf doc/presentation_files

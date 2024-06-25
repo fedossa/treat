@@ -1,6 +1,4 @@
 import pickle
-import logging
-import hydra
 import pandas as pd
 import numpy as np
 from plotnine import ggplot, geom_boxplot, labs, aes, geom_bin2d, after_stat
@@ -10,13 +8,14 @@ from panel_eda_helper_funcs import (prepare_correlation_table,
 from prepare_data import treat_outliers
 from theme_trr import theme_trr, scale_color_trr266_d, scale_fill_trr266_c
 
-log = logging.getLogger(__name__)
+from utils import setup_logging, read_config
+
+log = setup_logging()
 
 
-@hydra.main(version_base=None, config_path="../../conf", config_name="config")
-def main(cfg):
+def main():
     log.info('Performing main analysis...')
-    cfg = cfg['do_analysis']
+    cfg = read_config('config/do_analysis_cfg.yaml')
     smp = pd.read_csv(cfg['acc_sample'], dtype={'gvkey': str})
 
     fig_boxplot_full = make_boxplot(smp)

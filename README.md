@@ -4,22 +4,32 @@ This repository provides an infrastructure for open science oriented empirical p
 
 But even if you do not care about discretionary accruals (who wouldn't?) or do not have WRDS access, its code base should give you a feel on how the template is supposed to be used and how to structure a reproducible empirical project.
 
-Currently, this is all R based but it is not meant to stay that way. You can help by contributing Python and/or Stata code that mimics the R analysis steps via pull requests.
+The default branch, `only_python`, is a stripped down version of the template that only contains Python workflow. The `main` branch contains both the R and Python workflows and is a work in progress.
 
 
 ### Where do I start?
 
-For those of you new to R, we have "produced" a [series of short videos](https://www.youtube.com/playlist?list=PL-9XqvJlFJ-5NDUXubrbvF3aEQPeoAki3) that guide you through the process of setting up your computing environment and using this repository. Also, there is a [blog post](https://joachim-gassen.github.io/2021/03/get-a-treat/) that details these steps in a written form.
+You start by setting up few tools on your system.
+
+- If you are new to Python, we recommend that you follow the [Real Python installation guide](https://realpython.com/installing-python/){target="_blank"} that gives a good overview of how to set up Python on your system.
+
+- Additionally, you will also need to setup an Integrated Development Environment (IDE) or a code editor. We recommend using VS Code, please follow the ['Getting started with Python in VS Code Guide'](https://code.visualstudio.com/docs/python/python-tutorial){target="_blank"}.
+
+- You wll also need [Quarto](https://quarto.org/){target="_blank"}, a scientific and technical publishing system. Please follow the ['Quarto installation guide'](https://quarto.org/docs/get-started/){target="_blank"} to install Quarto on your system.
+
+- Finally, you will also need to have `make` installed on your system, if you want to use it. For Linux users this is usually already installed. For MacOS users, you can install `make` by running `brew install make` in the terminal. For Windows users, there are few options to install `make` and they are dependent on how you have setup your system. For example, if you have installed the Windows Subsystem for Linux (WSL), you can install `make` by running `sudo apt-get install make` in the terminal. If not you are probably better of googling how to install `make` on Windows and follow a reliable source.
 
 If you are new to scientific computing, we suggest that you also pick up a reference from the list below and browse through it. The [Gentzkow and Shapiro (2014) paper](https://web.stanford.edu/~gentzkow/research/CodeAndData.pdf) is a particularly easy and also useful read. 
 
 Then browse around the repository and familiarize yourself with its folders. You will quickly see that there are three folders that have files in them:
 
+- `config`: This directory holds configuration files that are being called by the program scripts in the `code` directory. We try to keep the configurations separate from the code to make it easier to adjust the workflow to your needs.
+
 - `code`: This directory holds program scripts that are being called to download data from WRDS, prepare the data, run the analysis and create the output files (a paper and a presentation, both PDF files).
 
 - `data`: A directory where data is stored. You will see that it again contains sub-directories and a README file that explains their purpose. You will also see that in the `external` sub-directory there are two data files. Again, the README file explains their content.
 
-- `doc`: Here you will find two RMarkdown files containing text and program instructions that will become our paper and presentation, by rendering them through the R markdown process and LaTeX.
+- `doc`: Here you will find two Quarto files containing text and program instructions that will become our paper and presentation, by rendering them through the R markdown process and LaTeX.
 
 - `info`: This is a folder that can store additional documentation. In our case you will find a RMarkdown file that introduces our TRR 266-themed ggplot theme.
 
@@ -28,45 +38,15 @@ You also see an `output` directory but it is empty. Why? Because you will create
 
 ### How do I create the output?
 
-Assuming that you have WRDS access, RStudio and make/Rtools installed, this should be relatively straightforward.
+Assuming that you have WRDS access, Vs Code and make installed, this should be relatively straightforward.
 
-1. Download, clone or fork the repository to your local computing environment.
-2. Before building everything you most likely need to install additional packages. This repository follows the established principle not to install any packages automatically. This is your computing environment. You decide what you want to install. See the code below for installing the packages.
-3. Copy the file _config.csv to config.csv in the project main directory. Edit it by adding your WRDS credentials. 
-4. Run 'make all' either via the console or by identifying the 'Build All' button in the 'Build' tab (normally in the upper right quadrant of the RStudio screen). 
-5. Eventually, you will be greeted with the two files in the output directory: "paper.pdf" and "presentation.pdf". Congratulations! You have successfully used an open science resource and reproduced our "analysis". Now modify it and make it your own project!
-
-If you do not see 'Build' tab this is most likely because you do not have 'make' installed on your system. 
-  - For Windows: Install Rtools: https://cran.r-project.org/bin/windows/Rtools/
-  - For MacOS: You need to install the Mac OS developer tools. Open a terminal and run `xcode-select --install` Follow the instructions
-  - On Linux: I have never seen a Unix environment without 'make'. 
-
-```
-# Code to install packages to your system
-install_package_if_missing <- function(pkg) {
-  if (! pkg %in% installed.packages()[, "Package"]) install.packages(pkg)
-}
-install_package_if_missing("tidyverse")
-install_package_if_missing("modelr")
-install_package_if_missing("broom")
-install_package_if_missing("lubridate")
-install_package_if_missing("ExPanDaR")
-install_package_if_missing("RPostgres")
-install_package_if_missing("DBI")
-install_package_if_missing("knitr")
-install_package_if_missing("kableExtra")
-install_package_if_missing("rmarkdown")
-
-# In addition, if you have no working LaTeX environment, consider
-# installing the neat tinytex LateX distribution. It is lightweight and
-# you can install it from wihtin R! See https://yihui.org/tinytex/
-# To install it, run from the R console:
-
-install_package_if_missing('tinytex')
-tinytex::install_tinytex()
-
-# That's all!
-```
+1. Click on the `Use this template` button on the top right of the repository and choose `Create a new repository`. Give the repository a name, a description and choose whether it should be public or private. Click on `Create repository`.
+2. You can now clone the repository to your local machine. Open the repository in Vs Code and open a new terminal.
+3. It is advisable to create a virtual environment for the project. You can do this by running `python -m venv venv` in the terminal. This will create a virtual environment in the `venv` directory. You can activate the virtual environment by running `source venv/bin/activate` on MacOS or Linux or `.\venv\Scripts\activate` on Windows. You can deactivate the virtual environment by running `deactivate`.
+4. With an active virtual environment, you can install the required packages by running `pip install -r requirements.txt` in the terminal. This will install the required packages for the project.
+5. Copy the file _secrets.env to secrets.env in the project main directory. Edit it by adding your WRDS credentials. 
+6. Run 'make all' either via the console. 
+7. Eventually, you will be greeted with the two files in the output directory: "paper.pdf" and "presentation.pdf". Congratulations! You have successfully used an open science resource and reproduced our "analysis". Now modify it and make it your own project!
 
 ### OK. That was fun. Bot how should I use the repo now?
 
@@ -75,7 +55,7 @@ The basic idea is to clone the repository whenever you start a new project. If y
 
 ### For TRR 266 Members: What else is in there for you?
 
-This repository contains three files that TRR members that use R might find particularly useful. The file `code/R/theme_trr.R` features a ggplot theme that makes it easy to generate visuals that comply to the TRR 266 style guide. The RMarkdown file in `info` takes you through the process. With the `doc/beamer_theme_trr266.sty` you can beef up your RMarkdown based beamer presentations to our fancy TRR design. Finally, the file `code/R/pull_wrds_data.R` might be useful if you want to learn how to download WRDS data directly from R.
+This repository contains three files that TRR members that use R might find particularly useful. The file `code/R/theme_trr.py` features a ggplot theme that makes it easy to generate visuals that comply to the TRR 266 style guide. But ggplot in python is not yet polished and does not have the same level of quality as in R. The RMarkdown file in `info` takes you through the process. With the `doc/beamer_theme_trr266.sty` you can beef up your Quarto based beamer presentations to our fancy TRR design. Finally, the file `code/R/pull_wrds_data.py` might be useful if you want to learn how to download WRDS data directly from python.
 
 
 ### Why do you do abc in a certain way? I like to do things differently!

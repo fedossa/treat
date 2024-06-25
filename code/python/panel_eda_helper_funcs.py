@@ -26,7 +26,7 @@ def prepare_descriptive_table(df, precision=3):
 
 
 def _highlight_sig_corr(pval_tab):
-    return pval_tab.applymap(lambda y: 'font-weight:bold'.format() if y else '')
+    return pval_tab.map(lambda y: 'font-weight:bold'.format() if y else '')
 
 
 def prepare_correlation_table(df, pval=0.05):
@@ -38,6 +38,7 @@ def prepare_correlation_table(df, pval=0.05):
 
     _spe = pd.DataFrame(_spe, columns=letters, index=ind)
     pval_tab = pd.DataFrame(pval_tab, columns=letters, index=ind) < pval
+    pval_tab = pval_tab.astype(object)
 
     for i in range(len(_spe)):
         for j in range(len(_spe)):

@@ -1,5 +1,4 @@
-pull_wrds_params:
-  dyn_vars:
+dyn_vars:
     - gvkey
     - conm
     - cik
@@ -64,7 +63,7 @@ pull_wrds_params:
     - wdp
     - rcp
 
-  stat_vars:
+stat_vars:
     - gvkey
     - loc
     - sic
@@ -72,6 +71,6 @@ pull_wrds_params:
     - ipodate
     - fic
 
-  cs_filter: consol='C' and (indfmt='INDL' or indfmt='FS') and datafmt='STD' and popsrc='D'
+cs_filter: consol='C' and (indfmt='INDL' or indfmt='FS') and datafmt='STD' and popsrc='D'
 
-cstat_us_sample: 'data/pulled/cstat_us_sample.csv'
+cstat_us_sample_save_path: 'data/pulled/cstat_us_sample.csv'
