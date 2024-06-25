@@ -11,11 +11,11 @@ The default branch, `only_python`, is a stripped down version of the template th
 
 You start by setting up few tools on your system.
 
-- If you are new to Python, we recommend that you follow the [Real Python installation guide](https://realpython.com/installing-python/){target="_blank"} that gives a good overview of how to set up Python on your system.
+- If you are new to Python, we recommend that you follow the [Real Python installation guide](https://realpython.com/installing-python/) that gives a good overview of how to set up Python on your system.
 
-- Additionally, you will also need to setup an Integrated Development Environment (IDE) or a code editor. We recommend using VS Code, please follow the ['Getting started with Python in VS Code Guide'](https://code.visualstudio.com/docs/python/python-tutorial){target="_blank"}.
+- Additionally, you will also need to setup an Integrated Development Environment (IDE) or a code editor. We recommend using VS Code, please follow the [Getting started with Python in VS Code Guide](https://code.visualstudio.com/docs/python/python-tutorial).
 
-- You wll also need [Quarto](https://quarto.org/){target="_blank"}, a scientific and technical publishing system. Please follow the ['Quarto installation guide'](https://quarto.org/docs/get-started/){target="_blank"} to install Quarto on your system.
+- You wll also need [Quarto](https://quarto.org/), a scientific and technical publishing system. Please follow the [Quarto installation guide](https://quarto.org/docs/get-started/) to install Quarto on your system.
 
 - Finally, you will also need to have `make` installed on your system, if you want to use it. For Linux users this is usually already installed. For MacOS users, you can install `make` by running `brew install make` in the terminal. For Windows users, there are few options to install `make` and they are dependent on how you have setup your system. For example, if you have installed the Windows Subsystem for Linux (WSL), you can install `make` by running `sudo apt-get install make` in the terminal. If not you are probably better of googling how to install `make` on Windows and follow a reliable source.
 
